@@ -8,10 +8,11 @@ from torchvision import transforms
 class PlumeSegmentationDataset():
     """SmokePlumeSegmentation dataset class."""
 
-    def __init__(self, datadir=None, segdir=None, transform=None):
+    def __init__(self, datadir=None, segdir=None, band=[1,2,3,4,5,6,7,8,9,10,11,12,13], transform=None):
         
         self.datadir = datadir
         self.transform = transform
+        self.band = band
 
         # list of image files, labels (positive or negative), segmentation
         self.imgfiles = []
@@ -46,7 +47,7 @@ class PlumeSegmentationDataset():
 
         # read in image data
         imgfile = rio.open(self.imgfiles[idx], nodata = 0)
-        imgdata = np.array([imgfile.read(i) for i in [1,2,3,4,5,6,7,8,9,10,11,12,13]])
+        imgdata = np.array([imgfile.read(i) for i in self.band])
         # skip band 11 (Sentinel-2 Band 10, Cirrus) as it does not contain
         # useful information in the case of Level-2A data products
 
@@ -55,6 +56,7 @@ class PlumeSegmentationDataset():
         # fptdata.reshape(fptdata,(120,120))
 
         sample = {'idx': idx,
+                  'band' : self.band,
                   'img': imgdata,
                   'fpt': fptdata,
                   'imgfile': self.imgfiles[idx]}
@@ -78,6 +80,7 @@ class RandomCrop(object):
         x, y = np.random.randint(0, 30, 2)
 
         return {'idx': sample['idx'],
+                'band' : sample['band'],
                 'img': imgdata.copy()[:, y:y+90, x:x+90],
                 'fpt': sample['fpt'].copy()[y:y+90, x:x+90],
                 'imgfile': sample['imgfile']}
@@ -95,6 +98,7 @@ class Crop(object):
         x, y = 0, 0
 
         return {'idx': sample['idx'],
+                'band' : sample['band'],
                 'img': imgdata.copy()[:, 0:90, 0:90],
                 'fpt': sample['fpt'].copy()[0:90, 0:90],
                 'imgfile': sample['imgfile']}
@@ -127,6 +131,7 @@ class Randomize(object):
         fptdata = np.rot90(fptdata, rot, axes=(0,1))
 
         return {'idx': sample['idx'],
+                'band' : sample['band'],
                 'img': imgdata.copy(),
                 'fpt': fptdata.copy(),
                 'imgfile': sample['imgfile']}
@@ -138,21 +143,17 @@ class Normalize(object):
         """
         :param size: edge length of quadratic output size
         """
-        self.channel_means = np.array(
-            [809.2, 900.5, 1061.4, 1091.7, 1384.5, 1917.8,
-             2105.2, 2186.3, 2224.8, 2346.8, 2346.8, 1901.2, 1460.42])
-        self.channel_stds = np.array(
-            [441.8, 624.7, 640.8, 718.1, 669.1, 767.5,
-             843.3, 947.9, 882.4, 813.7, 813.7, 716.9, 674.8])
-
+        self.channel_means = np.array([1909.3802, 1900.5879, 2261.5823, 3164.3564, 3298.6106, 3527.9346, 3791.7458, 3604.5210, 3946.0535, 1223.0176, 27.1881, 4699.9775, 3989.9626])
+        self.channel_stds = np.array([ 498.8658,  507.0728,  573.1718,  965.0130, 1014.2232, 1069.5269, 1133.6522, 1073.3431, 1146.3250,  520.9219,   28.9335, 1360.9994, 1169.5753])
+    
     def __call__(self, sample):
         """
         :param sample: sample to be normalized
         :return: normalized sample
         """
 
-        sample['img'] = (sample['img']-self.channel_means.reshape(
-            sample['img'].shape[0], 1, 1))/self.channel_stds.reshape(
+        sample['img'] = (sample['img']-self.channel_means[np.array(sample['band'])-1].reshape(
+            sample['img'].shape[0], 1, 1))/self.channel_stds[np.array(sample['band'])-1].reshape(
             sample['img'].shape[0], 1, 1)
 
         return sample
@@ -166,6 +167,7 @@ class ToTensor(object):
         """
 
         out = {'idx': sample['idx'],
+               'band' : sample['band'],
                'img': torch.from_numpy(sample['img'].copy()),
                'fpt': torch.from_numpy(sample['fpt'].copy()),
                'imgfile': sample['imgfile']}
