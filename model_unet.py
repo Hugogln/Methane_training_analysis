@@ -83,11 +83,12 @@ class OutConv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, n_channels, n_classes, bilinear=True):
+    def __init__(self, n_channels, n_classes, do_coef=0, bilinear=True):
         super(UNet, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
+        self.dropout = nn.Dropout(do_coef)
 
         self.inc = DoubleConv(n_channels, 64)
         self.down1 = Down(64, 128)
@@ -103,13 +104,22 @@ class UNet(nn.Module):
 
     def forward(self, x):
         x1 = self.inc(x)
+        x1 = self.dropout(x1)
         x2 = self.down1(x1)
+        x2 = self.dropout(x2)
         x3 = self.down2(x2)
+        x3 = self.dropout(x3)
         x4 = self.down3(x3)
+        x4 = self.dropout(x4)
         x5 = self.down4(x4)
+        x5 = self.dropout(x5)
         x = self.up1(x5, x4)
+        x = self.dropout(x)
         x = self.up2(x, x3)
+        x = self.dropout(x)
         x = self.up3(x, x2)
+        x = self.dropout(x)
         x = self.up4(x, x1)
-        logits = self.outc(x)
+        x = self.dropout(x)
+        logits = F.tanh(self.outc(x))
         return logits
