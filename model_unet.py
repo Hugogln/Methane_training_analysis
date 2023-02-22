@@ -121,5 +121,5 @@ class UNet(nn.Module):
         x = self.dropout(x)
         x = self.up4(x, x1)
         x = self.dropout(x)
-        logits = torch.sigmoid(self.outc(x))
+        logits = self.outc(x)
         return logits
